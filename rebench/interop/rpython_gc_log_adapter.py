@@ -35,13 +35,18 @@ class RPythonGCLogAdapter(GaugeAdapter):
         data_points = []
         current = DataPoint(run_id)
 
-        # pretty bad code, but will do for now
+        # pretty bad code, but will do...
         lines = data.split("\n")
-        for l in reversed(lines):
-            if "CUMULATIVE:" in l:
-                value = int(l.split(" ")[-1])
-                current.add_measurement(Measurement(invocation, iteration, value, 'bytes', run_id))
-                data_points.append(current)
-                return data_points
+        for idx, l in enumerate(lines):
+            if "GC count:" in l:  # i.e. an iteration got finished and PySOM is reporting (empty) GC data
+                for l1 in reversed(lines[:idx]):
+                    if "CUMULATIVE:" in l1:  # how we engineered the GC report to dump GC cumulative data
+                        value = int(l1.split(" ")[-1])
+                        current.add_measurement(Measurement(invocation, iteration, value, 'bytes', run_id))
+                        data_points.append(current)
+                        current = DataPoint(run_id)
+                        iteration += 1
+                        break
 
-        raise OutputNotParseable(data)
+        return data_points
+#        raise OutputNotParseable(data)
